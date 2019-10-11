@@ -1,0 +1,23 @@
+Package: cdcflu20192020
+Title: Code for Kernel of Truth entries in CDC flu contest 2019-2020
+Version: 0.0.0.9000
+Authors@R: c(
+    person("Evan", "Ray", , "eray@mtholyoke.edu", c("aut", "cre")),
+    person("Nick", "Reich", , "nick@umass.edu", c("aut")))
+Description: code for cdc flu contest 2019-2020
+Depends:
+    R (>= 3.0.2)
+Imports:
+    sarimaTD,
+    forecast,
+    MMWRweek,
+    cdcfluview
+License: GPL
+LazyData: true
+Suggests:
+    knitr,
+    testthat,
+    doMC,
+    FluSight
+VignetteBuilder: knitr
+RoxygenNote: 6.1.0

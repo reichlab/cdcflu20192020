@@ -1,5 +1,5 @@
-Package: cdcflu20192020
-Title: Code for Kernel of Truth entries in CDC flu contest 2019-2020
+Package: cdcfluforecasts
+Title: Code for Kernel of Truth entries in CDC FluSight Challenge
 Version: 0.0.0.9000
 Authors@R: c(
     person("Evan", "Ray", , "eray@mtholyoke.edu", c("aut", "cre")),

@@ -1,10 +1,12 @@
-#'cdcFlu20192020 - Code and submissions for 2019-2020 CDC flu prediction contest
+#'cdcfluforecasts - Code and submissions for CDC FluSight prediction contest from ReichLab/Kernel of Truth team
 #'
-#'Code and submissions for 2019-2020 CDC flu prediction contest
+#'Code and submissions for CDC FluSight prediction contest
 #'
-#'@author Evan Ray <eray@mtholyoke.edu>
+#'@author Evan Ray <eray@mtholyoke.edu>, Nicholas Reich <nick@umass.edu>
 #'@docType package
-#'@name cdcFlu20192020
+#'@name cdcfluforecasts
 #'@importFrom Rcpp evalCpp
-#'@aliases cdcFlu20192020 cdcFlu20192020-package
+#'@aliases cdcfluforecasts cdcfluforecasts-package
 NULL
+
+

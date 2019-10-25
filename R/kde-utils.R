@@ -142,6 +142,8 @@ fit_region_kdes <- function(data, region, first_fit_year, last_fit_year, first_f
 #'
 #' @param data data with one season left out
 #' @param prob_no_onset probability to assign to "no onset" bin
+#' 
+#' @export
 #'
 #' @return a fit from density(), along with points to evaluate at
 fit_kde_onset_week <- function(data, prob_no_onset) {
@@ -523,7 +525,7 @@ make_one_kde_prediction_file <- function(fits_path, save_path, season, season_we
             "-fit-prospective-",
             gsub("/", "-", season),
             ".rds"))
-        tmp <- make_region_prediction(kde_fit, 
+        tmp <- make_kde_region_prediction(kde_fit, 
             cdc_region_string=cdc_region, 
             inc_bins=inc_bins, 
             inc_bin_names=incidence_bin_names, 

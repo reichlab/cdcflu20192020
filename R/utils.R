@@ -242,3 +242,242 @@ get_rng_substream <- function(
   rstream.packed(rngstream) <- TRUE
   invisible(rngstream)
 }
+
+#' Compute season onset, peak week, and peak incidence
+#'
+#' @param data a data frame containing at minimum columns named season,
+#'   season_week and a column with some sort of incidence measure
+#' @param season the season to look at
+#' @param first_CDC_season_week the first week of the season to use for
+#'   calculating onset and peak
+#' @param last_CDC_season_week the last week of the season to use for
+#'   calculating onset and peak
+#' @param onset_baseline numeric baseline value for determining season onset
+#' @param incidence_var a character string naming the variable in the data
+#'   argument containing a measure of incidence, or an integer index
+#' @param incidence_bins a data frame with variables lower and upper defining
+#'   lower and upper endpoints to use in binning incidence
+#' @param incidence_bin_names a character vector with a name for each incidence
+#'   bin
+#'
+#' @return a list with four entries:
+#'   1) observed_onset_week, either an integer between first_CDC_season_week
+#'     and last_CDC_season_week (inclusive), or "none"
+#'   2) observed_peak_week, an integer between first_CDC_season_week and
+#'     last_CDC_season_week (inclusive)
+#'   3) observed_peak_inc, a numeric with the maximum value of the specified
+#'     incidence measure between first_CDC_season_week and last_CDC_season_week
+#'   4) observed_peak_inc_bin, character name of incidence bin for peak incidence
+#'
+#' @export
+get_observed_seasonal_quantities <- function(
+  data,
+  season,
+  first_CDC_season_week = 10,
+  last_CDC_season_week = 42,
+  onset_baseline,
+  incidence_var,
+  incidence_bins,
+  incidence_bin_names
+) {
+  first_season_ind <- min(which(data$season == season))
+  last_season_ind <- max(which(data$season == season))
+  
+  obs_inc_in_season_leading_trailing_nas <-
+    data[seq(from = first_season_ind, to = last_season_ind),
+      incidence_var]
+  
+  ## pad so that we start at season week 1
+  if(data$season_week[first_season_ind] != 1) {
+    obs_inc_in_season_leading_trailing_nas <- c(
+      rep(NA, data$season_week[first_season_ind] - 1),
+      obs_inc_in_season_leading_trailing_nas)
+  }
+  
+  ## set values before first analysis time season week or after last
+  ## analysis time season week to NA
+  ## these are outside of the bounds of the season the CDC wants to look at
+  obs_inc_in_season_leading_trailing_nas[
+    seq_len(first_CDC_season_week - 1)] <- NA
+  if(length(obs_inc_in_season_leading_trailing_nas) >
+      last_CDC_season_week) {
+    obs_inc_in_season_leading_trailing_nas[
+      seq(from = last_CDC_season_week + 1,
+        to = length(obs_inc_in_season_leading_trailing_nas))] <- NA
+  }
+  
+  observed_peak_inc <- max(
+    obs_inc_in_season_leading_trailing_nas,
+    na.rm = TRUE)
+  observed_peak_inc_bin <- get_inc_bin(observed_peak_inc, return_character = TRUE)
+  
+  ## peak week timing is based on rounded values
+  round_to_.1 <- function(inc_val) {
+    if(is.na(inc_val)) {
+      return(inc_val)
+    } else {
+      floor_val <- floor(inc_val * 10) / 10
+      if(inc_val >= floor_val + 0.05) {
+        return(floor_val + 0.1)
+      } else {
+        return(floor_val)
+      }
+    }
+  }
+  
+  rounded_observed_peak_inc <- round_to_.1(observed_peak_inc)
+  rounded_obs_inc_in_season <- sapply(obs_inc_in_season_leading_trailing_nas,
+    round_to_.1
+  )
+  
+  observed_peak_week <-
+    which(rounded_obs_inc_in_season == as.numeric(rounded_observed_peak_inc))
+  
+  weeks_in_first_season_year <- get_num_MMWR_weeks_in_first_season_year(season)
+  observed_onset_week <- get_onset_week(
+    incidence_trajectory = rounded_obs_inc_in_season,
+    #    incidence_trajectory = obs_inc_in_season_leading_trailing_nas, # used in stable method
+    baseline = onset_baseline,
+    onset_length = 3L,
+    first_season_week = 31,
+    weeks_in_first_season_year = weeks_in_first_season_year
+  )
+  
+  return(list(observed_onset_week = observed_onset_week,
+    observed_peak_week = observed_peak_week,
+    observed_peak_inc = observed_peak_inc,
+    observed_peak_inc_bin = observed_peak_inc_bin
+  ))
+}
+
+
+#' return the bin name for a given incidence
+#'
+#' @param inc numeric incidence level
+#' @param return_character logical: if true, return type is character (bin name)
+#'   if false, return type is numeric representation of bin
+#'
+#' @return vector giving the bin name of the input incidence.
+#'
+#' @details assumes max inc bin is 13 and bins are 0.1 in size.
+#'
+#' @export
+get_inc_bin <- function(inc,max=13,
+  return_character = TRUE) {
+  inc <- round(inc, 1)
+  bin_numeric <- ifelse(inc < max,
+    floor(inc*10)/10, ## floors to 1st decimal place
+    max)
+  if(return_character) {
+    return(as.character(bin_numeric))
+  } else {
+    return(bin_numeric)
+  }
+}
+
+#' return integer that's either 52 or 53: number of weeks in the first year of
+#' a given season.
+#'
+#' @param season season in the format "2014/2015"
+#'
+#' @details requires MMWRweek package
+#'
+#' @export
+get_num_MMWR_weeks_in_first_season_year <- function(season) {
+  return(get_num_MMWR_weeks_in_year(substr(season, 1, 4)))
+}
+
+#' return integer that's either 52 or 53: number of MMWR weeks in the given year
+#'
+#' @param year year in the format "2014" -- can be character or numeric
+#'
+#' @details requires non-exported function start_date from MMWRweek package
+#'
+#' @export
+get_num_MMWR_weeks_in_year <- function(year) {
+  require(MMWRweek)
+  year <- as.numeric(year)
+  return(MMWRweek::MMWRweek(MMWRweek:::start_date(year + 1) - 1)$MMWRweek)
+}
+
+#' Utility function to compute onset week based on a trajectory of incidence values
+#'
+#' @param incidence_trajectory a numeric vector with incidence for each time
+#'   point in a season
+#' @param baseline the threshold that incidence must cross to count as an onset
+#' @param onset_length number of consecutive time points that incidence must
+#'   exceed the baseline threshold in order to count as the season onset
+#' @param first_season_week number of weeks in year corresponding to the first
+#'   week in the season.  For example, our code takes this value to be 31:
+#'   a new influenza season starts on the 31st week of each year.
+#' @param weeks_in_first_season_year How many MMWR weeks are in the first year
+#'   of the season?  For example, in the 2000/2001 season, the first year is
+#'   2000.  There were 52 MMWR weeks in 2000.
+#'
+#' @return the smallest index i such that every entry of
+#'   incidence_trajectory[seq(from = i, length = onset_length)]
+#'   is >= baseline, if such an index exists.
+#'   Otherwise, the character vector "none"
+#'
+#' @export
+get_onset_week <- function(incidence_trajectory,
+  baseline,
+  onset_length,
+  first_season_week = 31,
+  weeks_in_first_season_year) {
+  
+  exceeded_threshold <- sapply(
+    seq_len(length(incidence_trajectory) - onset_length),
+    function(start_ind) {
+      above_baseline <- incidence_trajectory[seq(from = start_ind, length = onset_length)] >= baseline
+      length(above_baseline)>0 &&
+        all(above_baseline) &&
+        !all(is.na(incidence_trajectory))
+    }
+  )
+  
+  if(any(exceeded_threshold, na.rm = TRUE)) {
+    season_week <- min(which(exceeded_threshold))
+    
+    return(season_week)
+  } else {
+    return("none")
+  }
+}
+
+
+#' Get the onset baseline for a combination of region and season
+#'
+#' @param region a string, either "National", "Region k", or "Regionk" where
+#'   k in {1, ..., 10}
+#' @param season a string, in the format "2015/2016"
+#'
+#' @return baseline value for determining season onset
+#'
+#' @export
+get_onset_baseline <- function(region, season = "2015/2016") {
+  ## pick baseline
+  ## assumes region is either "National" or "Region k" format
+  reg_string <- ifelse(region=="National", "National", gsub(" ", "", region))
+  idx <- which(flu_onset_baselines$region==reg_string &
+      flu_onset_baselines$season==season)
+  reg_baseline <- flu_onset_baselines[idx, "baseline"]
+  
+  return(reg_baseline)
+}
+
+#' Calcluation of median value from binned probability distribution
+#'
+#' @param probs vector of named probabilities
+#'
+#' @return a numeric value
+#'
+#' @export
+calc_median_from_binned_probs <- function(probs) {
+  ## could do something more intelligent for "none" bin in onset - currently assuming it is all ordered
+  cumprob <- cumsum(probs)
+  median_idx <- min(which(cumprob>=0.5))
+  as.numeric(names(probs)[median_idx])
+}
+
+

@@ -5,7 +5,6 @@
 #'@author Evan Ray <eray@mtholyoke.edu>, Nicholas Reich <nick@umass.edu>
 #'@docType package
 #'@name cdcfluforecasts
-#'@importFrom Rcpp evalCpp
 #'@aliases cdcfluforecasts cdcfluforecasts-package
 NULL
 
